@@ -103,6 +103,7 @@
   .what { grid-column: 1 / -1; overflow-wrap: anywhere; white-space: pre-wrap; }
   #list-note { margin: 1rem 0; }
   #retry { display: none; margin-top: .5rem; }
+  .extra-field { position: absolute; left: -9999px; }
   .fine-print { margin-top: 1.5rem; font-size: 1.05rem; color: var(--ink-soft); }
 </style>
 </head>
@@ -111,6 +112,10 @@
   <h1>Money taken out</h1>
 
   <form class="slip" id="form" novalidate>
+      <div class="extra-field" aria-hidden="true">
+      <label for="website">Leave this empty</label>
+      <input id="website" name="website" type="text" tabindex="-1" autocomplete="off">
+    </div>
     <div class="field">
       <label for="amount">How much?</label>
       <div class="amount-box">
@@ -278,6 +283,12 @@
 
   el("form").addEventListener("submit", async (event) => {
     event.preventDefault();
+         // People can't see this hidden box, so an entry here probably came from a bot.
+    if (el("website").value) {
+      el("website").value = "";
+      say("That wasn't saved. Press Save again.", "bad");
+      return;
+    }
     const cents = toCents(el("amount").value);
     const date = el("date").value;
     const usedFor = el("usedFor").value.trim();
