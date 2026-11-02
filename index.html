@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Money taken out</title>
+<style>
+  @font-face { font-family: "Atkinson"; src: url("fonts/atkinson-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+  @font-face { font-family: "Atkinson"; src: url("fonts/atkinson-700.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+
+  :root {
+    color-scheme: light;
+    --tint: #dfeae6;      /* the pale green of a bank slip */
+    --slip: #f7fbf9;
+    --line: #8fa9a3;
+    --ink: #14304a;       /* pen blue */
+    --ink-soft: #46596a;
+    --stripe: #edf4f1;
+    --stamp: #1c6b4a;
+    --alert: #a3261b;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--tint);
+    color: var(--ink);
+    font: 400 1.25rem/1.5 "Atkinson", Verdana, sans-serif;
+  }
+  main { max-width: 40rem; margin: 0 auto; padding: 2rem 1rem 4rem; }
+  h1 { font-size: 2.25rem; line-height: 1.15; margin: 0 0 1.25rem; }
+  h2 { font-size: 1.5rem; line-height: 1.2; margin: 0; }
+
+  /* The form is drawn like a paper withdrawal slip: square-cornered, with a dashed tear-off edge. */
+  .slip {
+    background: var(--slip);
+    border: 2px solid var(--ink);
+    border-bottom: 2px dashed var(--ink);
+    padding: 1.5rem;
+  }
+  .field { margin-bottom: 1.5rem; }
+  label { display: block; font-weight: 700; margin-bottom: .35rem; }
+  input, textarea {
+    width: 100%;
+    font: inherit;
+    color: inherit;
+    background: #fff;
+    border: 2px solid var(--line);
+    border-radius: 0;
+    padding: .6rem .75rem;
+  }
+  textarea { min-height: 5.5rem; resize: vertical; }
+  input:focus-visible, textarea:focus-visible, button:focus-visible {
+    outline: 3px solid var(--stamp);
+    outline-offset: 2px;
+  }
+
+  /* The one big thing on the page: the amount, written large as on a real slip. */
+  .amount-box { display: flex; align-items: center; background: #fff; border: 2px solid var(--line); }
+  .amount-box:focus-within { outline: 3px solid var(--stamp); outline-offset: 2px; }
+  .amount-box span { font-size: 2.75rem; font-weight: 700; padding-left: .75rem; }
+  .amount-box input {
+    border: 0; outline: 0; background: transparent;
+    font-size: 2.75rem; font-weight: 700; padding: .25rem .5rem;
+    min-width: 0;
+  }
+
+  button {
+    font: inherit; font-weight: 700;
+    color: #fff; background: var(--ink);
+    border: 0; padding: .85rem 1.5rem;
+    width: 100%; cursor: pointer;
+  }
+  button:hover { background: #0c2136; }
+  button:disabled { background: var(--ink-soft); cursor: wait; }
+
+  #message { min-height: 2rem; margin: .75rem 0 0; font-weight: 700; }
+  #message.good { color: var(--stamp); }
+  #message.bad { color: var(--alert); }
+  @media (prefers-reduced-motion: no-preference) {
+    #message.good { animation: stamp .25s ease-out; }
+    @keyframes stamp { from { transform: scale(1.25); } to { transform: scale(1); } }
+    #message { transform-origin: left center; }
+  }
+
+  /* The record below reads like the lines of a bank passbook. */
+  .record { margin-top: 2.5rem; }
+  .total-line { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap; border-bottom: 2px solid var(--ink); padding-bottom: .5rem; }
+  #total { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    column-gap: 1rem;
+    padding: .75rem .5rem;
+    border-bottom: 1px solid var(--line);
+  }
+  li:nth-child(odd) { background: var(--stripe); }
+  li:nth-child(even) { background: var(--slip); }
+  .when { color: var(--ink-soft); font-size: 1.05rem; grid-column: 1; }
+  .money { font-weight: 700; font-variant-numeric: tabular-nums; grid-column: 2; grid-row: 1; white-space: nowrap; }
+  .what { grid-column: 1 / -1; overflow-wrap: anywhere; white-space: pre-wrap; }
+  #list-note { margin: 1rem 0; }
+  #retry { display: none; margin-top: .5rem; }
+  .fine-print { margin-top: 1.5rem; font-size: 1.05rem; color: var(--ink-soft); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Money taken out</h1>
+
+  <form class="slip" id="form" novalidate>
+    <div class="field">
+      <label for="amount">How much?</label>
+      <div class="amount-box">
+        <span aria-hidden="true">$</span>
+        <input id="amount" inputmode="decimal" autocomplete="off" placeholder="0.00">
+      </div>
+    </div>
+    <div class="field">
+      <label for="date">What date?</label>
+      <input id="date" type="date">
+    </div>
+    <div class="field">
+      <label for="usedFor">What was it for?</label>
+      <textarea id="usedFor" maxlength="500"></textarea>
+    </div>
+    <button id="save" type="submit">Save</button>
+    <p id="message" role="status"></p>
+  </form>
+
+  <section class="record">
+    <div class="total-line">
+      <h2>Total taken out</h2>
+      <span id="total"></span>
+    </div>
+    <p id="list-note" role="status">Loading…</p>
+    <button id="retry" type="button">Try again</button>
+    <ul id="list"></ul>
+    <p class="fine-print">Saved entries can't be changed here. If one is wrong, tell the person who looks after this page.</p>
+  </section>
+</main>
+
+<script>
+  // ---- The only two values to fill in. Both come from the Firebase console (see README). ----
+  // They are safe in a public page. What protects the data is the rules in firestore.rules.
+  const PROJECT_ID = "PASTE_PROJECT_ID_HERE";
+  const API_KEY = "PASTE_API_KEY_HERE";
+  // --------------------------------------------------------------------------------------------
+
+  const COLLECTION_URL =
+    `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(PROJECT_ID)}` +
+    `/databases/(default)/documents/withdrawals`;
+
+  const el = (id) => document.getElementById(id);
+
+  // Today in the visitor's own time zone, as YYYY-MM-DD.
+  function today() {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
+  // Turns what was typed ("$1,250.5") into whole cents (125050), or null if it isn't a usable amount.
+  // Money is stored in cents because ordinary decimals can add up slightly wrong.
+  function toCents(typed) {
+    const clean = typed.replace(/[$,\s]/g, "");
+    if (!/^\d{1,9}(\.\d{1,2})?$/.test(clean)) return null;
+    const [dollars, part = ""] = clean.split(".");
+    const cents = Number(dollars) * 100 + Number(part.padEnd(2, "0"));
+    return cents > 0 ? cents : null;
+  }
+
+  const money = (cents) =>
+    (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
+
+  function niceDate(iso) {
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString("en-US", {
+      month: "long", day: "numeric", year: "numeric",
+    });
+  }
+
+  function isRealDate(iso) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
+    const d = new Date(`${iso}T00:00:00Z`);
+    return !isNaN(d) && d.toISOString().slice(0, 10) === iso;
+  }
+
+  // ---- Talking to the database ----
+
+  async function fetchAllEntries() {
+    const entries = [];
+    let pageToken = "";
+    do {
+      const params = new URLSearchParams({ key: API_KEY, pageSize: "300" });
+      if (pageToken) params.set("pageToken", pageToken);
+      const response = await fetch(`${COLLECTION_URL}?${params}`);
+      if (!response.ok) throw new Error(`Load failed: ${response.status}`);
+      const data = await response.json();
+      for (const doc of data.documents ?? []) {
+        entries.push({
+          cents: Number(doc.fields.amountCents.integerValue),
+          date: doc.fields.date.stringValue,
+          usedFor: doc.fields.usedFor.stringValue,
+          savedAt: doc.createTime, // added by the database itself
+        });
+      }
+      pageToken = data.nextPageToken ?? "";
+    } while (pageToken);
+
+    // Newest date first. Entries on the same date: most recently saved first.
+    return entries.sort(
+      (a, b) => b.date.localeCompare(a.date) || b.savedAt.localeCompare(a.savedAt)
+    );
+  }
+
+  async function saveEntry({ cents, date, usedFor }) {
+    const response = await fetch(`${COLLECTION_URL}?key=${encodeURIComponent(API_KEY)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fields: {
+          amountCents: { integerValue: String(cents) },
+          date: { stringValue: date },
+          usedFor: { stringValue: usedFor },
+        },
+      }),
+    });
+    if (!response.ok) throw new Error(`Save failed: ${response.status}`);
+  }
+
+  // ---- The page ----
+
+  function show(entries) {
+    const list = el("list");
+    list.replaceChildren();
+    let total = 0;
+    for (const entry of entries) {
+      total += entry.cents;
+      const row = document.createElement("li");
+      const add = (cls, text) => {
+        const part = document.createElement("span");
+        part.className = cls;
+        part.textContent = text; // textContent shows typed text as plain words, never as code
+        row.append(part);
+      };
+      add("when", niceDate(entry.date));
+      add("money", money(entry.cents));
+      add("what", entry.usedFor);
+      list.append(row);
+    }
+    el("total").textContent = money(total);
+    el("list-note").textContent = entries.length ? "" : "Nothing saved yet. Use the form above to add the first one.";
+    el("list-note").hidden = entries.length > 0;
+  }
+
+  async function loadList() {
+    el("retry").style.display = "none";
+    el("list-note").hidden = false;
+    try {
+      show(await fetchAllEntries());
+    } catch (error) {
+      console.error(error);
+      el("list-note").textContent = "The list couldn't be loaded. Check your internet connection and try again.";
+      el("retry").style.display = "block";
+    }
+  }
+
+  function say(text, kind) {
+    const message = el("message");
+    message.className = "";
+    void message.offsetWidth; // restarts the little "stamp" animation on repeat saves
+    message.className = kind;
+    message.textContent = text;
+  }
+
+  el("form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const cents = toCents(el("amount").value);
+    const date = el("date").value;
+    const usedFor = el("usedFor").value.trim();
+
+    if (cents === null) { say("Enter the amount as a number, like 40 or 125.50.", "bad"); el("amount").focus(); return; }
+    if (!isRealDate(date)) { say("Choose the date the money was taken out.", "bad"); el("date").focus(); return; }
+    if (!usedFor) { say("Write what the money was for.", "bad"); el("usedFor").focus(); return; }
+
+    const button = el("save");
+    button.disabled = true; // stops a double tap from saving the same entry twice
+    button.textContent = "Saving…";
+    try {
+      await saveEntry({ cents, date, usedFor });
+      say(`Saved: ${money(cents)}`, "good");
+      el("amount").value = "";
+      el("usedFor").value = "";
+      el("date").value = today();
+      await loadList();
+    } catch (error) {
+      console.error(error);
+      say("That wasn't saved. Check your internet connection and press Save again.", "bad");
+    } finally {
+      button.disabled = false;
+      button.textContent = "Save";
+    }
+  });
+
+  el("retry").addEventListener("click", loadList);
+
+  el("date").value = today();
+  loadList();
+</script>
+</body>
+</html>

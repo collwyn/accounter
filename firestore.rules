@@ -1,0 +1,33 @@
+rules_version = '2';
+
+// Paste this into Firebase console > Firestore Database > Rules, then click Publish.
+//
+// In plain English: anyone with the page can read entries and add a properly
+// filled-in entry. Nobody can change or delete an entry from the page.
+// You can still fix or remove entries yourself in the Firebase console.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /withdrawals/{entry} {
+      allow read: if true;
+
+      allow create: if request.resource.data.keys().hasOnly(['amountCents', 'date', 'usedFor'])
+                    && request.resource.data.keys().hasAll(['amountCents', 'date', 'usedFor'])
+                    && request.resource.data.amountCents is int
+                    && request.resource.data.amountCents > 0
+                    && request.resource.data.amountCents < 100000000000
+                    && request.resource.data.date is string
+                    && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+                    && request.resource.data.usedFor is string
+                    && request.resource.data.usedFor.size() > 0
+                    && request.resource.data.usedFor.size() <= 500;
+
+      allow update, delete: if false;
+    }
+
+    // Anything else in the database stays closed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
